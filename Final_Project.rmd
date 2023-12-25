@@ -1,0 +1,415 @@
+---
+title: "Applying ARIMA-GARCH models for time series analysis on Seasonal andNonseasonal datasets"
+author: "S. Aditya Reddy"
+data: "2023-12-17"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<div style="text-align: center;font-weight: bold;font-size:24px;">Abstract</div>
+Time series analysis is a method for analyzing data in order to spot    trends and predict what will happen in the future. We’re going to carry out time series analysis on two types of data i.e. seasonal and non-seasonal data. This project will provide a procedure to analyze and model time series in R. The first part covers analysis and forecast of monthly sales of a Retail Shop. The data is the number of general sales every month for nearly ten years. Approaches of time series analysis are auto-regressive integrated moving average(ARIMA), seasonal auto-regressive integrated moving average(SARIMA), auto-regressive moving average(ARMA), moving average(MA) and auto-regression(AR). The second part deals with the time series of JPMorgan Stock to analyze and forecast the further prices . The core of the project is to provide a guide to ARIMA andARCH-GARCH and look at the combined model’s output and effectiveness in time series modeling and forecasting.
+
+
+<div style="text-align: center;font-weight: bold;font-size:18px">PART-A</div>
+<div style="text-align: center;font-weight:bold;font-size:18px">Seasonal Dataset:Monthly Retail Sales</div>
+### Introduction:
+This project consists of predicting the monthly sales of champagne by using time series and will also predict the future monthly sales of the Retail Shop. The problem statement is estimating the number of general sales . The main purpose of this project is to find forecasting of the monthly sales. The data set used covers a period of nearly ten years, from January 1964 to September 1972, and includes the number of sales every month.
+
+```{r}
+library(TSA)
+library(tidyverse)
+library(tseries)
+data=read.csv("C:/Users/Aditya Reddy/Desktop/Stevens/MA-641/Retail Sales.csv")
+summary(data)
+```
+
+```{r}
+data=na.omit(data)
+data=data$Sales
+plot(ts(data,frequency=12,start=(1964)),ylab='MonthlySales',lwd=2,main='Time Series plot')
+```
+
+From the above plot, we can observe that there is a peak in sales towards the end of every year. This is a good example of seasonality as the pattern is repeating annually.When looking at the line plot, it appears that there is an increasing sales trend through out the historical shift, as well as seasonality and the height of the cycles, implying that it is multiplicative. We can observe that there was an increasing trend between 1964 and 1970 on this time series graph. Seasonality shows that the series is almost non-stationary. If the series is not stationary, it is necessary to make the series stationary.
+
+```{r}
+adf.test(data)
+```
+
+Not stationary since the calculated p-value is not less than 
+critical p-value i.e 0.05. So we now try to make it stationary.
+
+```{r}
+acf(data,lag.max = 50)
+pacf(data,lag.max = 50)
+```
+
+The sample ACF and PACF for series is shown in the above plots. We can see the seasonal auto-correlation in the ACF plot. Also, there is another relationship that must be modeled. So, we take one seasonal difference.
+
+```{r}
+difference_data=diff(data,lag=12)
+seasonal_data=ts(difference_data)
+seasonal_data=na.omit(seasonal_data)
+seasonal_data=ts(seasonal_data,frequency = 12)
+```
+
+```{r}
+plot(seasonal_data,ylab='Monthly Sales',lwd=2,main='seasonal_data')
+```
+
+This is the time series plot after taking one seasonal difference of sales data. We can now see that the increasing trend between 1964 and 1970 is no more.
+
+```{r}
+adf.test(seasonal_data)
+```
+
+ADF test gives p-value less than 0.05 so we reject the null hypothesis. Data is now stationary. Since stationarity has been achieved at the first difference, the ARIMA model of order (p,1,q) will be used where 'p' is the order of the auto-regressive term and 'q' is the order of the moving average term.
+
+Let’s have a look at ACF & PACF again:
+```{r}
+acf(seasonal_data,lag.max=100,lwd=2)
+```
+
+The plot of ACF after 1 difference suggests that there is very less autocorrelation. There are no significant lags (or we can consider 1 lag) outside the confidence interval i.e. we can consider MA(0) (or MA(1)) for non-seasonal part of SARIMA and for seasonal part MA(1) can be considered because we do not see any seasonality trend or repetition. For the non-seasonal part, we may consider two models i.e. MA(0) or MA(1) and for the seasonal part we may consider MA(1).
+
+```{r}
+pacf(seasonal_data,lag.max=100,lwd=2)
+```
+
+The plot of PACF after 1 difference suggests that there is very less autocorrelation. There are no significant lags (or we can consider 1 lag) outside the confidence interval i.e. we can consider AR(0) (or AR(1)) for non-seasonal part of SARIMA and for seasonal part AR(1) can be considered because we do not see any seasonality trend or repetition. For the non-seasonal part, we may consider two models i.e.AR(0) or AR(1) and for the seasonal part we may consider AR(1).
+
+```{r}
+eacf(seasonal_data)
+```
+
+Looking at the eacf plot
+
+*ARIMA(0,1)*
+
+*ARIMA(1,1)*
+
+*ARIMA(1,0)*
+
+
+### Models of Time Series
+Because the series is seasonal, SARIMA (Seasonal ARIMA) will be used instead of ARIMA.
+From ACF and PACF plot chose below models fit to my data:
+
+*Model1:* SARIMA(1,0,0)(1,1,0)[12]
+
+*Model2:* SARIMA(1,0,0)(1,1,1)[12]
+
+Since the data is monthly data, seasonality is 12.
+
+```{r}
+model1<-arima(seasonal_data,order=c(1,0,0),seasonal=list(order=c(1,0,0),period=12))
+print(model1)
+```
+
+```{r}
+model2<-arima(seasonal_data,order=c(1,0,0),seasonal=list(order=c(1,0,1),period=12))
+print(model2)
+```
+
+```{r}
+model3<-arima(seasonal_data,order=c(1,0,1),seasonal = list(order=c(1,0,0),period=12))
+print(model3)
+```
+
+Comparing the above models based on AIC values:
+Model 1 has the least AIC values
+
+### Residual Analysis:
+The “residuals” in a time series model are what is left over after fitting 
+a model. Residuals are useful for determining if a model has captured all of the data's information. A good forecasting method will yield residuals with the following properties:
+
+*1)* The residuals are uncorrelated.
+
+*2)* The residuals have zero mean.
+
+We plot sample ACF and PACF to check if there's any correlation in residuals and normality of theresiduals is checked using histogram and qq plots.
+
+```{r}
+residuals_model1 = model1$residuals
+residuals_model2 = model2$residuals
+residuals_model3 = model3$residuals
+```
+
+### Plotting the Residuals:
+### For model1:
+```{r}
+plot(residuals_model1,type='o',lwd=2)
+```
+
+Examining a plot of the residuals over time serves as our first diagnostic check. If the model is accurate,we anticipate that the plot will show a rectangle dispersion around a horizontal level of zero with novisible trends.
+
+```{r}
+acf(as.vector(residuals_model1),lag.max=50,lwd=2)
+pacf(as.vector(residuals_model1),lag.max=50,lwd=2)
+```
+
+From the ACF of residuals, we can see that there is almost no autocorrelation between residuals.
+
+```{r}
+qqnorm(residuals_model1)
+qqline(residuals_model1)
+```
+
+```{r}
+hist(residuals_model1)
+lb_test1<-Box.test(residuals_model1,type='Ljung-Box',lag=20)
+print(lb_test1)
+print(shapiro.test(residuals_model1))
+tsdiag(model1)
+```
+
+### For model2:
+```{r}
+plot(residuals_model2,type='o',lwd=2)
+acf(as.vector(residuals_model2),lag.max=50,lwd=2)
+pacf(as.vector(residuals_model2),lag.max=50,lwd=2)
+```
+
+```{r}
+qqnorm(residuals_model2)
+qqline(residuals_model2)
+```
+
+```{r}
+hist(residuals_model2)
+lb_test2<-Box.test(residuals_model2,type='Ljung-Box',lag=20)
+print(lb_test2)
+print(shapiro.test(residuals_model2))
+tsdiag(model2)
+```
+
+
+### For model3:
+```{r}
+plot(residuals_model3,type='o',lwd=2)
+acf(as.vector(residuals_model3),lag.max=50,lwd=2)
+pacf(as.vector(residuals_model3),lag.max=50,lwd=2)
+```
+
+```{r}
+qqnorm(residuals_model3)
+qqline(residuals_model3)
+```
+
+```{r}
+hist(residuals_model3)
+lb_test3<-Box.test(residuals_model3,type='Ljung-Box',lag=20)
+print(lb_test3)
+tsdiag(model3)
+```
+
+
+### Forcasting:
+
+After the fit process is completed and after getting the best model we use that model on our original data to forecast.
+
+```{r}
+library(forecast)
+forecast_model1<-arima(ts(data,frequency=12,start=(1964)),order=c(1,1,0),seasonal = c(1,1,0))
+forecast_model1$x<-ts(data,frequency=12,start = c(1964))
+forecast_model1$x
+```
+
+I have used the forecast() function to produce forecasts from the model. The forecast() method can handle a wide range of inputs. It usually uses a time series or a time series model as its core argument and generates appropriate forecasts. I have used a time series model to forecast the next 24 values of the series with 95% confidence interval.
+
+```{r}
+forecast_values<-forecast(forecast_model1,level = c(95),h=12)
+forecast_values
+```
+
+The above table shows the next 24 forecasted values of the time series.
+
+```{r}
+plot(forecast_values,lwd=2)
+```
+
+In the above figure, we see the 24-month forecast results from October 1972 to September 1974 on the line graph in blue. If we look at the forecast values and visualization, it can be called a satisfactory
+result. So, the model SARIMA(1,0,0)(1,1,0)[12] is a good fit to the data and we are getting adequate forecast results.
+
+<div style="text-align: center;font-weight:bold;font-size:18px">PART-B:</div>
+<div style="text-align: center;font-weight:bold;font-size:18px">Non-Seasonal Dataset:JP Morgan Stock Data</div>
+
+### Introduction:
+Stock market data can be interesting to analyze and as a further incentive, strong predictive models can have large financial payoff. The amount of financial data on the web is seemingly endless. A large and well-structured dataset on a wide array of companies can be hard to come by. Here I am using a dataset of JPMorgan Stock data. The goal of this project is to predict and forecast daily return values for a particular stock. Given the highly volatile nature of stock data, we will fit a univariate GARCH model to achieve our goal of predicting the daily returns value to allow you to make statistically informed trades!
+
+```{r}
+library(TSA)
+library(tidyverse)
+library(lubridate)
+library(xts)
+library(quantmod)
+library(tseries)
+library(rugarch)
+library(forecast)
+data=read.csv("C:/Users/Aditya Reddy/Desktop/Stevens/MA-641/JPMorgan Chase.csv")
+summary(data)
+data$Date<-lubridate::as_datetime(data$Date)
+data_ts<-xts(as.numeric(data$Close),data$Date)
+plot(data_ts)
+```
+
+As mentioned before, we will be predicting the daily returns of the stock. Daily return on a stock is used to measure the day-to-day performance of stocks, it is the price of stocks at today's closure compared to the price of the same stock at yesterday's closure.
+
+The code below calculates the daily returns and also plots it for us.
+```{r}
+daily_returns<-dailyReturn(data_ts)
+daily_returns<-daily_returns[-1]
+plot(daily_returns)
+```
+
+Histogram of the returns data
+
+```{r}
+h <- hist(daily_returns, breaks = 80) 
+xfit <- seq(min(daily_returns), max(daily_returns), length = 80) 
+yfit <- dnorm(xfit, mean = mean(daily_returns), sd = sd(daily_returns)) 
+yfit <- yfit * diff(h$mids[1:2]) * length(daily_returns) 
+lines(xfit, yfit, col = "black", lwd = 2)
+```
+As we can see from the above returns plot, it is stationary and exhibits normality (confirmed from the plot above). This is also confirmed by the augmented Dickey Fuller test where the P value is statistically significant so that we can conclude that the  data  is indeed  stationary. Also, we don’t see any trends in the data. The important point here is that in the returns plot shows, there is a lot of volatility present. 
+
+Also from the Augmented Dickey Fuller Test we can conclude that the data is stationary
+```{r}
+adf.test(daily_returns)
+```
+
+Let's have a look at the ACF and PACF plots
+
+```{r}
+acf(daily_returns,lag.max=40,lwd=2)
+pacf(daily_returns,lag.max=40,lwd=2)
+```
+
+```{r}
+eacf(daily_returns)
+```
+
+As we know that the ARMA models are used to capture the constant  mean in the series, and the constant variance will be  captured by the GARCH model. We can see from the return plots that there is a  constant mean. We will verify this by using the nested for loop used in PART A of this project. Then we will determine the order of the GARCH model by using the ACF and PACF plots.  As we  are using  the ugrachfit  method from  the “rugarch”  library instead  of the  garch method  from  the “tseries” library. We directly give the ARMA and GRACH order to the method ugrachfit and the return data instead of giving the residuals as we would have for the garch method. This implementation can be verified from references numbered [3,4,5]. Having a look at the ACF, PACF and EACF of the series to determine the order of the GRACH model. As we can see from the ACF and PACF plots there are not significant lags, there is one at lag 7 but for the scope of this project we will hence stick to GARCH (3,4) model
+
+Fitting ARMA and GARCH Models
+
+*ARMA(0,1)*
+
+*ARMA(1,2)*
+
+*ARMA(3,4)*
+
+```{r}
+model_1<-ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(3, 4)),
+                    mean.model = list(armaOrder = c(0, 0)),distribution.model = 'norm')
+
+garch_model1 <- ugarchfit(spec = model_1, data = daily_returns,solver='hybrid')
+print(garch_model1)
+plot(garch_model1,which='all')
+```
+
+The sGARCH(3,4) model with a normal distribution is fitted to the Daily Returns. Analysing the results for Weighted Ljung-Box test on Standardized Residuals indicate no significant serial correlation. Looking at the Adjusted Pearson Goodness-of-Fit test has p-values for different groups indicate that the model fits the data well. 
+The Diagnostics test suggest that the model provides a good fit to the data.The model captures volatility clustering and other patterns in the financial series.
+
+```{r}
+model_2<-ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(3, 4)),
+                    mean.model = list(armaOrder = c(0, 0)),distribution.model = 'sstd')
+
+garch_model2 <- ugarchfit(spec = model_2, data = daily_returns)
+print(garch_model2)
+plot(garch_model2,which='all')
+```
+
+The sGARCH(3,4) model with a Student's t distribution is fitted to the Daily Returns. Analysing the results for Weighted Ljung-Box test on Standardized Residuals indicate no significant serial correlation. Looking at the Adjusted Pearson Goodness-of-Fit test has p-values for different groups indicate that the model fits the data well.The skewness and shape parameters indicate potential asymmetry in the return distribution.
+
+```{r}
+model_3<-ugarchspec(variance.model = list(model = "gjrGARCH", garchOrder = c(3, 4)),
+                    mean.model = list(armaOrder = c(0, 0)),distribution.model = 'sstd')
+garch_model3 <- ugarchfit(spec = model_3, data = daily_returns)
+print(garch_model3)
+plot(garch_model3,which='all')
+```
+
+The gjrGARCH(3,4) model with a normal distribution is fitted to the Daily Returns. Analysing the results for Weighted Ljung-Box test on Standardized Residuals indicate no significant serial correlation. This model provides good fit to the data when compared to the above 2 models considering various aspects of volatility and skewness.
+
+### SIMULATION AND FORECASTING 
+We will be using the GJR GARCH model for the final forecasting
+
+```{r}
+m<-ugarchfit(data=daily_returns,spec=model_3)
+sfinal<-model_3
+setfixed(sfinal)<-as.list(coef(m))
+coef(m)
+```
+
+Often we want to  use an estimated model to subsequently forecast the conditional variance. The function used for this purpose is the ugarchforecast function. In ugarchforecast( ), the data is ignored and the forecast is based on the fitted model and the last few data points in the training set.
+
+```{r}
+f2018<-ugarchforecast(data=daily_returns["/2018-12"],fitORspec = sfinal,n.ahead=252)
+plot(sigma(f2018))
+```
+
+```{r}
+sim<-ugarchpath(spec = sfinal,m.sim=2,n.sim=1*252,rseed=123)
+plot.zoo(fitted(sim),lwd=2)
+plot.zoo(sigma(sim),lwd=2)
+```
+
+Looking at the closing values at end of 2018 and then using it to forecast. We will use the apply function to get the fitting returns and convert them to cumulative values.
+
+```{r}
+tail(data$Close)
+p<-140.54*apply(fitted(sim),2,'cumsum')+140.54
+matplot(p,type='l',lwd=3)
+```
+
+### Conclusion:
+Thus, we have fitted a GRJ-GRACH (3,4) model to get the daily return price 
+of the stocks. The final plot takes the closing price of the stock at the 
+end of 2018 and predicts it for the next entire year. 
+
+
+### References:
+*1.*Cryer, J. D., & Chan, K. S. (2008). Time series analysis: with applications in R (Vol. 2). New York: Springer. 
+
+*2.* Katesari, H. S., & Vajargah, B. F. (2015). Testing adverse selection using frank copula approach in Iran insurance markets. Mathematics and Computer Science, 15(2), 154-158.  
+
+*3.* Katesari, H. S., & Zarodi, S. (2016). Effects of coverage choice by predictive modeling on frequency of accidents. Caspian Journal of Applied Sciences Research, 5(3), 28-33.  
+
+*4.* Safari-Katesari, H., Samadi, S. Y., & Zaroudi, S. (2020). Modelling count data via copulas. Statistics, 54(6), 1329-1355.  
+
+*5.* Shumway, R. H., Stoffer, D. S., & Stoffer, D. S. (2000). Time series analysis and its applications (Vol. 3). New York: springer. 
+
+*6.* Safari-Katesari, H., & Zaroudi, S. (2020). Count copula regression model using generalized beta distribution of the second kind. Statistics, 21, 1-12.  
+
+*7.* Safari-Katesari, H., & Zaroudi, S. (2021). Analysing the impact of dependency on conditional survival functions using copulas. Statistics in Transition New Series, 22(1).  
+
+*8.* Safari Katesari, H., (2021) Bayesian dynamic factor analysis and copula-based models for mixed data, PhD dissertation, Southern Illinois University Carbondale.
+
+*9.* Tsay, R. S. (2013). Multivariate time series analysis: with R and financial applications. John Wiley & Sons.
+
+*10.* Zaroudi, S., Faridrohani, M. R., Behzadi, M. H., & Safari-Katesari, H. (2022). Copula-based Modeling for IBNR Claim Loss Reserving. arXiv preprint arXiv:2203.12750.
+
+### Links:
+
+*1)* https://www.kaggle.com/datasets/kapturovalexander/goldman-sachs-and-jpmorgan-chase-share-prices
+
+*2)* https://www.kaggle.com/datasets/galibce003/Retail_Sales
+
+*3)*  https://www.rdocumentation.org/packages/forecast/versions/8.16/topics/Arima 
+
+*4)* https://people.duke.edu/~rnau/arimrule.html
+
+*5)* https://www.rdocumentation.org/packages/rugarch/versions/1.4-8a 
+
+*6)* https://faculty.washington.edu/ezivot/econ589/univariateGarch2012powerpoint.pdf 
+
+*7)* https://www.financialriskforecasting.com/seminars/seminars/Seminar4.html#4   
+
+
